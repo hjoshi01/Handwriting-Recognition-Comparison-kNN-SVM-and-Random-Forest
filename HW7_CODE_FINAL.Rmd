@@ -1,0 +1,183 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+knitr::opts_chunk$set(echo = TRUE)
+suppressPackageStartupMessages(library(tidyverse))
+suppressPackageStartupMessages(library(caret))
+suppressPackageStartupMessages(library(kernlab)) # for SVM
+library(e1071) # also for SVM
+suppressPackageStartupMessages(library(randomForest))
+library(rsample)
+library(RColorBrewer) # customized coloring of plots
+```
+
+```{r}
+setwd("~/IST 707  AML/Lecture 8 SVM KNN/IST-707-Wk08-kNN-SVM-RF-Demo")
+```
+
+```{r}
+#take the csv datasets and store them
+digit_test <- read_csv('digit-test.csv')
+digit_train <- read_csv('digit-train.csv')
+#only taking  first 1000 rows for training dataset
+digit_train <- digit_train[1:1000,]
+
+```
+```{r}
+#checking null values
+sum(is.na(digit_train))
+sum(is.na(digit_test))
+```
+```{r}
+#convert labels to factor
+digit_train$label <- as.factor(digit_train$label)
+digit_test$label = as.factor(digit_test$label)
+```
+
+```{r}
+# using odd numbers so classes cannot have same number of nearest neighbors
+time <- Sys.time()
+search.grid = expand.grid(k = seq(5, 25, 2))
+#
+
+# set up 3-fold cross validation 10 times
+train.control = trainControl(
+  method = 'repeatedcv', 
+  number = 3,
+  repeats = 10
+  )
+
+# train model
+knn = train(label ~ .,
+  data = digit_train,
+  method = 'knn',
+  trControl = train.control,
+  tuneGrid = search.grid
+  )
+
+Sys.time -time
+```
+
+```{r}
+# # performance results for the top 5 models
+# knn$results |> 
+#   top_n(5, wt = Accuracy) |> 
+#   arrange(desc(Accuracy))
+
+# results for the best model
+confusionMatrix(knn)
+#84.9%
+```
+
+
+```{r}
+#KNN PREDICTION:
+Knn_predict = predict(knn, newdata = digit_test)
+confusionMatrix(Knn_predict, digit_test$label)
+#87.78%
+```
+```{r}
+# set pseudo random number generator for reproducibility 
+# set.seed(123)
+# 
+# # default RF model
+# rf1 = randomForest(
+#   formula = label ~ .,
+#   data = digit_train,
+#   ntree = 500,
+#   mtry  = 2
+# )
+# 
+# rf1
+```
+```{r}
+#RF
+search.grid = expand.grid(.mtry = (1:5)) 
+
+rf1 = train(label ~ .,
+              data = digit_train,
+              method = 'rf',
+              metric = 'Accuracy',
+              trControl = train.control,
+              tuneGrid = search.grid)
+
+# performance results for the top 5 models
+rf1$results |>  
+  top_n(5, wt = Accuracy) |> 
+  arrange(desc(Accuracy))
+
+# results for the best model
+confusionMatrix(rf1)
+#87.85%
+```
+```{r}
+#RF PREDICTION
+RF_predict = predict(rf1, newdata = digit_test)
+confusionMatrix(RF_predict, digit_test$label)
+#89.88% highest so far
+```
+
+
+```{r}
+# results for the best model
+confusionMatrix(rf1)
+```
+```{r}
+digit_train$label = as.factor(digit_train$label)
+```
+
+```{r}
+levels(digit_train$label) <- make.names(levels(digit_train$label))
+levels(digit_test$label) <- make.names(levels(digit_test$label))
+```
+
+```{r}
+#SVM Linear
+search.grid = expand.grid(C = seq(0.1, 2, length = 20))
+
+# set up 3-fold cross validation 10 times
+train.control = trainControl(
+  method = 'cv', 
+  number = 3,
+  )
+
+svm = train(label ~.,
+            data = digit_train,
+            method = 'svmLinear',
+            trControl = train.control,
+            tuneGrid = search.grid)
+```
+```{r}
+# results for best model
+confusionMatrix(svm)
+#88%
+```
+
+```{r}
+#SVM LINEAR PREDICTION: 88.33%
+predsvm = predict(svm, newdata = digit_test)
+confusionMatrix(predsvm, digit_test$label)
+```
+
+```{r}
+#SVM RadialTaking too much time, aborted
+search.grid = expand.grid(sigma = seq(0.1, 2, length = 20),
+                          C = seq(0.1, 2, length = 20))
+
+
+svm3 = train(label ~.,
+               data = digit_train,
+               method = 'svmRadial',
+               trControl = train.control,
+               tuneGrid = search.grid)
+
+```
+```{r}
+
+```
+
+
+
